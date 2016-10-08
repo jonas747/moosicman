@@ -109,7 +109,6 @@ func (p *Player) run() {
 
 			fin, err := p.currentStream.Finished()
 			if !fin {
-				status := p.currentStream.PlaybackPosition()
 				p.Unlock()
 				continue
 			}
@@ -162,6 +161,10 @@ func (p *Player) handleEvent(evt interface{}) {
 				log.Println("Error disconnecting:", err)
 			}
 		}
+
+		playersLock.Lock()
+		delete(players, p.guildID)
+		playersLock.Unlock()
 	case *PlayerEvtNext:
 		p.playNext()
 	case *PlayerEvtResume:

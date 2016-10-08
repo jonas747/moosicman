@@ -99,7 +99,6 @@ func handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	cmd := strings.ToLower(split[0])
 
 	if cmd == CmdPrefix+"join" {
-		log.Println(vs.ChannelID, guild.ID)
 		_, err = CreatePlayer(guild.ID, vs.ChannelID)
 		if err != nil {
 			log.Println("Error creating player:", err)
