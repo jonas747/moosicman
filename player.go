@@ -210,6 +210,12 @@ func (p *Player) playNext() {
 	reader, writer := io.Pipe()
 
 	go func() {
+		bestFormats := next.Formats.Best(ytdl.FormatAudioBitrateKey)
+		if len(bestFormats) < 1 {
+			log.Println("No format available")
+			return
+		}
+
 		next.Download(next.Formats.Best(ytdl.FormatAudioEncodingKey)[0], writer)
 		writer.Close()
 	}()
@@ -232,6 +238,12 @@ func (p *Player) QueueUp(url string) error {
 	if err != nil {
 		return err
 	}
+
+	bestFormats := info.Formats.Best(ytdl.FormatAudioBitrateKey)
+	if len(bestFormats) < 1 {
+		return errors.New("No formats availabls")
+	}
+
 	log.Println("Sending", info.Title, "to the player...")
 	p.evtChan <- &PlayerEvtQeue{info}
 	return nil
