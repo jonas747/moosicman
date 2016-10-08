@@ -7,7 +7,7 @@ Commands:
 Prefix: > (it's a constant you can change in the source if you know what you're doing)
 
  - join
- - add <youtube link>
+ - add (youtube link
  - pause
  - resume
  - status
