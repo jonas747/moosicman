@@ -30,7 +30,7 @@ var (
 func init() {
 	flag.StringVar(&Token, "t", "", "Account Token")
 	flag.StringVar(&CmdPrefix, "p", ">", "Command prefix")
-	flag.StringVar(&CmdPrefix, "pl", "players.json", "Where the players should be stored")
+	flag.StringVar(&PlayersPath, "pl", "players.json", "Where the players should be stored")
 	flag.IntVar(&MaxQueueSize, "mq", 100, "Max queue size")
 	flag.Parse()
 }
@@ -228,7 +228,8 @@ func handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		DiscordSession.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Shuffle: %v", shuffle))
 	case "remove":
 		// Removes an element in the playlist
-		index, err := strconv.Atoi(split[1])
+		index := 0
+		index, err = strconv.Atoi(split[1])
 		if err != nil {
 			break
 		}
