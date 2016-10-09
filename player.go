@@ -7,6 +7,7 @@ import (
 	"github.com/rylio/ytdl"
 	"io"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -38,7 +39,10 @@ type Player struct {
 	guildID string
 	vc      *discordgo.VoiceConnection
 
-	queue []*ytdl.VideoInfo
+	queue          []*ytdl.VideoInfo
+	persistQueue   bool
+	shuffle        bool
+	nextQueueIndex int
 
 	currentEncodeSession dca.EncodeSession
 	currentStream        *dca.StreamingSession
@@ -166,16 +170,33 @@ func (p *Player) handleEvent(evt interface{}) {
 		delete(players, p.guildID)
 		playersLock.Unlock()
 	case *PlayerEvtNext:
+
+		if t.Index != -1 {
+			p.nextQueueIndex = t.Index
+		} else if t.Random && len(p.queue) > 0 {
+			p.nextQueueIndex = rand.Intn(len(p.queue))
+		}
+
 		p.playNext()
 	case *PlayerEvtResume:
 		if p.currentStream != nil {
 			p.currentStream.SetRunning(true)
 		}
 	case *PlayerEvtQeue:
+		if len(p.queue) > MaxQueueSize {
+			break
+		}
+
 		p.queue = append(p.queue, t.Info)
 		if p.currentEncodeSession == nil {
 			p.playNext()
 		}
+	case *PlayerEvtRemove:
+		if t.Index >= len(p.queue) {
+			log.Println("Attempted to remove element out of bounds")
+			break
+		}
+		p.queue = append(p.queue[:t.Index], p.queue[t.Index+1:]...)
 	default:
 		log.Println("UNKNOWN PLAYER EVENT", evt)
 	}
@@ -202,8 +223,25 @@ func (p *Player) playNext() {
 		return
 	}
 
-	next := p.queue[0]
-	p.queue = p.queue[1:]
+	nextIndex := p.nextQueueIndex
+	if nextIndex >= len(p.queue) {
+		nextIndex = 0
+	}
+
+	next := p.queue[nextIndex]
+
+	if !p.persistQueue {
+		p.queue = append(p.queue[:nextIndex], p.queue[nextIndex+1:]...)
+	}
+
+	// Update the queue index
+	if p.shuffle {
+		if len(p.queue) > 0 {
+			p.nextQueueIndex = rand.Intn(len(p.queue))
+		}
+	} else {
+		p.nextQueueIndex++
+	}
 
 	log.Println("Playing", next.Title)
 
@@ -227,6 +265,7 @@ func (p *Player) playNext() {
 	p.currentStream = stream
 	p.currentEncodeSession = encodeSession
 	p.currentlyPlaying = next
+
 }
 
 func (p *Player) QueueUp(url string) error {
@@ -249,11 +288,32 @@ func (p *Player) QueueUp(url string) error {
 	return nil
 }
 
+func (p *Player) TogglePersist() bool {
+	p.Lock()
+	defer p.Unlock()
+	p.persistQueue = !p.persistQueue
+	return p.persistQueue
+}
+
+func (p *Player) ToggleShuffle() bool {
+	p.Lock()
+	defer p.Unlock()
+	p.shuffle = !p.shuffle
+
+	if p.shuffle && len(p.queue) > 0 {
+		p.nextQueueIndex = rand.Intn(len(p.queue))
+	}
+
+	return p.shuffle
+}
+
 type PlayerStatus struct {
 	Paused   bool
 	Position time.Duration
 	Current  *ytdl.VideoInfo
 	Queue    []*ytdl.VideoInfo
+	Shuffle  bool
+	Persist  bool
 }
 
 // Return all the elemns in the queue
@@ -272,6 +332,8 @@ func (p *Player) Status() *PlayerStatus {
 		Position: position,
 		Current:  p.currentlyPlaying,
 		Queue:    p.queue,
+		Persist:  p.persistQueue,
+		Shuffle:  p.shuffle,
 	}
 	p.Unlock()
 
@@ -285,4 +347,10 @@ type PlayerEvtQeue struct {
 type PlayerEvtPause struct{}
 type PlayerEvtResume struct{}
 type PlayerEvtKill struct{}
-type PlayerEvtNext struct{}
+type PlayerEvtNext struct {
+	Index  int  // Jumps to specified index if > -1
+	Random bool // Jumps to a random element
+}
+type PlayerEvtRemove struct {
+	Index int // What to remove
+}
