@@ -73,6 +73,7 @@ func CreatePlayer(guildID string, channelID string) (*Player, error) {
 	}
 
 	player.vc = vc
+	player.running = true
 	go player.run()
 
 	players[guildID] = player
@@ -80,14 +81,6 @@ func CreatePlayer(guildID string, channelID string) (*Player, error) {
 }
 
 func (p *Player) run() {
-
-	p.Lock()
-	if p.running {
-		p.Unlock()
-		return
-	}
-	p.running = true
-	p.Unlock()
 
 	log.Println("Waiting for voice connected...")
 	<-p.vc.Connected

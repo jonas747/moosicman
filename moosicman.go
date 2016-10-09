@@ -19,6 +19,7 @@ const (
 var (
 	Token        string
 	CmdPrefix    string
+	PlayersPath  string
 	MaxQueueSize int
 
 	DiscordSession *discordgo.Session
@@ -29,6 +30,7 @@ var (
 func init() {
 	flag.StringVar(&Token, "t", "", "Account Token")
 	flag.StringVar(&CmdPrefix, "p", ">", "Command prefix")
+	flag.StringVar(&CmdPrefix, "pl", "players.json", "Where the players should be stored")
 	flag.IntVar(&MaxQueueSize, "mq", 100, "Max queue size")
 	flag.Parse()
 }
@@ -59,7 +61,7 @@ func main() {
 
 	checkErr(session.Open())
 
-	select {}
+	ListenStopSignal()
 }
 
 func handleReady(s *discordgo.Session, m *discordgo.Ready) {
@@ -67,6 +69,11 @@ func handleReady(s *discordgo.Session, m *discordgo.Ready) {
 	log.Println("If this is a bot account people acn invite it with the following link:")
 	log.Println("https://discordapp.com/oauth2/authorize?client_id=CLIENT_ID_HERE&scope=bot")
 	log.Println("Replace 'CLIENT_ID_HERE' with the bot's client id")
+
+	err := LoadPlayersFromDisk(PlayersPath)
+	if err != nil {
+		log.Println("Error loading players", err)
+	}
 }
 
 func handleGuildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
